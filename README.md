@@ -1,4 +1,4 @@
-### Smart Expense Tracking and Insights 
+### Expense Smart Expense Tracking and Insights 
 
 #### Business case
 
