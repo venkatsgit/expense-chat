@@ -1,0 +1,9 @@
+# Database connection details
+db_user = "root"
+db_password = "test@123"
+db_host = "localhost"
+db_name = "expensive"
+
+select_table = ["transactions"]
+
+HUGGINGFACEHUB_API_TOKEN = "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"

@@ -1,1 +1,14 @@
 flask==2.3.2
+
+fastapi~=0.115.11
+uvicorn
+pymysql~=1.1.1
+sqlalchemy~=2.0.38
+langchain~=0.3.19
+langchain-community~=0.3.18
+huggingface_hub
+pydantic~=2.10.6
+huggingface-hub~=0.29.1
+langchain-core~=0.3.40
+cryptography
+
