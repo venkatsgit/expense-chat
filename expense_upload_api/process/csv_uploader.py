@@ -75,7 +75,7 @@ class FileUploader:
             upload_history_id = upload_history_response.json['history_id']
             data_frame['upload_history_id'] = self.upload_history_id
             insert_query = f"""
-                INSERT INTO {sql_schema_name}.{sql_table_name} ({', '.join(sql_column_names)}) 
+                INSERT IGNORE INTO {sql_schema_name}.{sql_table_name} ({', '.join(sql_column_names)}) 
                 VALUES ({', '.join(['%s'] * len(sql_column_names))})
             """
             data_frame = data_frame[sql_column_names]
