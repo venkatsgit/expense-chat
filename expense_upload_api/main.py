@@ -21,7 +21,7 @@ app.register_blueprint(api_bp, url_prefix="/api")
 def home():
     return "Hello, Flask!"
 
-app.teardown_appcontext(close_db)
+# app.teardown_appcontext(close_db)
 
 if __name__ == '__main__':
     app.run(debug=True)

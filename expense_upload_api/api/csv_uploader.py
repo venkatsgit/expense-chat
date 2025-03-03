@@ -2,9 +2,10 @@ from flask import request, jsonify
 from . import api_bp
 import json
 from process.csv_uploader import FileUploader
+from process.upload_history import get_upload_history
 
 
-@api_bp.route('/csv/upload', methods=['POST'])
+@api_bp.route('/file/upload', methods=['POST'])
 def upload_csv():
     user_id = "1"
 
@@ -19,5 +20,12 @@ def upload_csv():
         if file_name not in file_meta_data_provider:
             return jsonify({'status': 'error', 'message': 'bad request'}), 400
         else:
-            file_uploader = FileUploader(file,file_name,file_meta_data_provider[file_name],user_id)
+            file_uploader = FileUploader(
+                file, file_name, file_meta_data_provider[file_name], user_id)
             return file_uploader.validate_and_insert()
+
+
+@api_bp.route('/file/gethistory', methods=['GET'])
+def get_upload_history_api():
+    user_id = "1"
+    return get_upload_history(user_id)
