@@ -41,5 +41,5 @@ if "access_token" not in st.session_state:
         # else:
         #     st.error("Login failed! Please check your username and password.")
 else:
-    st.switch_page("pages/Chat.py")
+    st.switch_page("pages/chat_prompt.py")
     
