@@ -4,7 +4,7 @@ import pandas as pd
 from menu import menu_with_redirect
 
 menu_with_redirect()
-HISTORY_URL = "http://127.0.0.1:5000/api/file/gethistory"
+HISTORY_URL = "http://localhost:8081/api/file/gethistory"
 
 st.header("Upload History")
 

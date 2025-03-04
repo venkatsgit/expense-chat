@@ -4,7 +4,7 @@ import requests
 from menu import menu_with_redirect
 
 menu_with_redirect()
-UPLOAD_URL = "http://127.0.0.1:5000/api/file/upload"
+UPLOAD_URL = "http://localhost:8081/api/file/upload"
 
 st.header("Upload")
 uploaded_file = st.file_uploader("Choose a file", type=["csv"])

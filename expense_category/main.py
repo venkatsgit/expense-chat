@@ -11,10 +11,10 @@ classifier = pipeline("zero-shot-classification",
                       model="facebook/bart-large-mnli")
 
 
-app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "localhost")
+app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "35.200.221.46")
 app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", 3306))
-app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "root")
-app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "root")
+app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "remote_user")
+app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "pass")
 app.config["MYSQL_DB"] = os.getenv("MYSQL_DB", "expense_insights")
 
 init_db(app)
@@ -50,4 +50,4 @@ def process_classification(user_id, upload_history_id):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8082, debug=True)
+    app.run(host="0.0.0.0", port=8082, debug=False)
