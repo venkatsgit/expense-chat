@@ -2,6 +2,7 @@ from flask import jsonify
 from db import get_db
 import pandas as pd
 import datetime
+import requests
 
 
 class FileUploader:
@@ -32,7 +33,8 @@ class FileUploader:
             missing_columns = [
                 col for col in required_headers if col not in data_frame.columns]
             if missing_columns:
-                self.insert_upload_history("FAILED","Missing columns: " + ', '.join(missing_columns))
+                self.insert_upload_history(
+                    "FAILED", "Missing columns: " + ', '.join(missing_columns))
                 return jsonify({'status': 'error', 'message': 'Missing columns: ' + ', '.join(missing_columns)}), 400
 
             data_frame = data_frame[required_headers].dropna()
@@ -49,7 +51,7 @@ class FileUploader:
 
         except Exception as e:
             print(e)
-            self.insert_upload_history("FAILED","internal server error")
+            self.insert_upload_history("FAILED", "internal server error")
             return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
     def header_mapping(self, data_frame, file_meta_data):
@@ -69,7 +71,8 @@ class FileUploader:
             sql_table_name = file_meta_data['sql_table_name']
             sql_schema_name = file_meta_data['sql_schema_name']
             sql_column_names = file_meta_data['sql_column_names']
-            upload_history_response = self.insert_upload_history("PROCESSING","upload in progress")
+            upload_history_response = self.insert_upload_history(
+                "PROCESSING", "upload in progress")
             if upload_history_response.json['status'] == "error":
                 return jsonify({'status': 'error', 'message': 'Upload error'}), 500
             upload_history_id = upload_history_response.json['history_id']
@@ -83,12 +86,14 @@ class FileUploader:
             cursor.executemany(insert_query, data_to_insert)
 
             db.commit()
-            self.update_upload_history("SUCCESS","uploaded successfully")
+            self.update_upload_history("SUCCESS", "uploaded successfully")
+            if 'model_processing' in file_meta_data:
+                self.call_model_api()
             # cursor.close()
-            return jsonify({'status': 'success', 'message': 'Expenses uploaded successfully!'}), 200
+            return jsonify({'status': 'success', 'message': 'file uploaded successfully!'}), 200
         except Exception as e:
             print(e)
-            self.insert_upload_history("FAILED","internal server error")
+            self.insert_upload_history("FAILED", "internal server error")
             return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
     def insert_upload_history(self, status, message):
@@ -107,7 +112,7 @@ class FileUploader:
             cursor.execute(insert_query, (user_id, file_name, status,
                                           message, datetime.datetime.now().replace(microsecond=0)))
             cursor.execute("SELECT LAST_INSERT_ID();")
-            
+
             history_id = cursor.fetchone()[0]
             self.upload_history_id = history_id
             db.commit()
@@ -117,7 +122,6 @@ class FileUploader:
             print(e)
             return jsonify({'status': 'error', 'message': 'Internal server error'})
 
-    
     def update_upload_history(self, status, message):
 
         try:
@@ -127,8 +131,33 @@ class FileUploader:
                 SET status = %s, message = %s
                 WHERE id = %s;
             """
-            cursor.execute(update_query, (status, message, self.upload_history_id))
+            cursor.execute(
+                update_query, (status, message, self.upload_history_id))
             db.commit()
         except Exception as e:
             print(e)
+
+    def call_model_api(self):
+        try:
+            file_meta_data = self.file_meta_data
+            model_processing = file_meta_data['model_processing'][0]
+            url = model_processing['url']
+            payload = {
+                'user_id': self.user_id,
+                'table_name': file_meta_data['sql_table_name'],
+                'schema_name': file_meta_data['sql_schema_name'],
+                'upload_history_id': self.upload_history_id
+            }
+            headers = {
+                "auth": ""
+            }
+            response = requests.post(url=url, json=payload)
+
+            if response.status_code == 200:
+                print('classifier process started')
+            else:
+                print("error")
+        except Exception as e:
+            print(e)
+
 

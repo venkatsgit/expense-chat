@@ -24,6 +24,12 @@
             "category",
             "date",
             "created_at"
+        ],
+        "model_processing": [
+            {
+               "url" : " http://127.0.0.1:8082/classify",
+               "model":"classifier"
+            }
         ]
     }
 }
