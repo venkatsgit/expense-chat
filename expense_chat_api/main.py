@@ -1,62 +1,61 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 import os
-import uvicorn
-import pymysql
+from fastapi import FastAPI, HTTPException
 import urllib.parse
+from pydantic import BaseModel
 import re
-from operator import itemgetter
+import uvicorn
 from huggingface_hub import InferenceClient
 from langchain_community.utilities.sql_database import SQLDatabase
 from langchain_community.tools import QuerySQLDatabaseTool
 from sqlalchemy.exc import SQLAlchemyError
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
-# Initialize FastAPI app
+import config
+
 app = FastAPI()
 
 # Set Hugging Face API token securely
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = config.HUGGINGFACEHUB_API_TOKEN
 
 # Database connection details
-db_user = "root"
-db_password = urllib.parse.quote("test@123")
-db_host = "localhost"
-db_name = "expensive"
+db_password = urllib.parse.quote(config.db_password)
 
-# Define the table to use
-select_table = ["transactions"]
-
-# Initialize SQL Database
-try:
-    db = SQLDatabase.from_uri(f"mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}",
-                              include_tables=select_table)
-    print("Database connected successfully.")
-except SQLAlchemyError as e:
-    print(f"Database connection error: {e}")
-    exit()
-
-# Initialize Hugging Face Inference Client
-client = InferenceClient("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3")
 
 class QuestionRequest(BaseModel):
     question: str
     userID: str
 
+
+# Initialize SQL Database
+try:
+    db = SQLDatabase.from_uri(f"mysql+pymysql://{config.db_user}:{db_password}@{config.db_host}/{config.db_name}",
+                              include_tables=config.select_table)
+    print("Database connected successfully.")
+except SQLAlchemyError as e:
+    print(f" Database connection error: {e}")
+    exit()
+
+# Initialize Hugging Face Inference Client
+client = InferenceClient("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3")
+
+
 # Function to generate a valid SQL query
-def generate_sql_query(question):
+def generate_sql_query(question, userID):
     try:
         schema_info = """
-           The database has a table named 'transactions' with the following columns:
+           The database has a table named 'expenses' with the following columns:
            - id (integer, primary key)
            - category (varchar)
-           - amount (decimal)
-           - expensive_date (date)
+           - expense (decimal)
+           - date (date)
 
+           Ensure the generated SQL query replaces NULL values with 0 using COALESCE.
            Generate ONLY the SQL query based on this table.
            """
+
+        # prompt = f"Generate a MySQL query based on the following question:\n\nQuestion: {question}\n\nSQL Query:"
 
         prompt = f"{schema_info}\n\n{question}"
         response = client.text_generation(prompt)
@@ -67,16 +66,24 @@ def generate_sql_query(question):
         if sql_match:
             sql_query = sql_match.group(1).strip()
         else:
-            sql_query = response  # If no ```sql``` wrapper is found, assume response is the query
+            sql_query = response
 
         # Basic validation
         if not sql_query.lower().startswith("select"):
             raise ValueError("Generated response is not a valid SQL query.")
 
+        user_condition = f"user_id = '{userID}'"
+
+        if "where" in sql_query.lower():
+            sql_query = re.sub(r"(where\s+)", r"\1" + user_condition + " AND ", sql_query, flags=re.IGNORECASE)
+        else:
+            sql_query = sql_query.rstrip(";") + f" WHERE {user_condition};"
+        print(sql_query)
         return sql_query
     except Exception as e:
         print(f"Error generating SQL query: {e}")
         return None
+
 
 # Function to execute SQL query
 def execute_sql_query(query):
@@ -88,12 +95,14 @@ def execute_sql_query(query):
         print(f"Error executing SQL query: {e}")
         return None
 
+
 # Wrap Hugging Face client in a LangChain Runnable
 def query_huggingface(input_text):
     """Ensure the input is a plain string before sending it to Hugging Face."""
     if not isinstance(input_text, str):
         input_text = str(input_text)
     return client.text_generation(input_text)
+
 
 llm_runnable = RunnableLambda(query_huggingface)
 
@@ -106,15 +115,18 @@ answer_prompt = PromptTemplate.from_template(
     Answer: """
 )
 
-# LangChain pipeline for query execution and rephrasing
-def process_question(question):
-    query = generate_sql_query(question)
 
+# LangChain pipeline for query execution and rephrasing
+def process_question(question, userID):
+    query = generate_sql_query(question, userID)
     if query:
         print(f"Generated SQL Query:\n{query}")
         result = execute_sql_query(query)
 
         if result:
+            # if str(result) == "[(None,)]" :
+            #     result = "[(Decimal('0'),)]"
+            # print(result)
             # Rephrase the answer
             rephrase_answer = answer_prompt | llm_runnable | StrOutputParser()
             answer = rephrase_answer.invoke({"question": question, "query": query, "result": result})
@@ -124,10 +136,12 @@ def process_question(question):
     else:
         return "Failed to generate a valid SQL query."
 
+
 @app.post("/chatbot")
 def chatbot_endpoint(request: QuestionRequest):
-    answer = process_question(request.question)
+    answer = process_question(request.question, request.userID)
     return {"userID": request.userID, "question": request.question, "answer": answer}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
