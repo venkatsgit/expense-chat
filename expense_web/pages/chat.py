@@ -1,10 +1,9 @@
 import streamlit as st
 import requests
 from menu import menu_with_redirect
+from config import CHAT_URL
 
 menu_with_redirect()
-CHAT_URL = "http://127.0.0.1:5000/api/chat"
-
 
 st.header("Chat")
 query = st.text_area(label="Queries", value="")

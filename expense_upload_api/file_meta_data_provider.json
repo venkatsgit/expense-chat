@@ -27,7 +27,7 @@
         ],
         "model_processing": [
             {
-               "url" : " http://127.0.0.1:8082/classify",
+               "url" : "http://34.93.134.131:8082/classify",
                "model":"classifier"
             }
         ]

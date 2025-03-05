@@ -2,16 +2,16 @@ import streamlit as st
 import requests
 import pandas as pd
 from menu import menu_with_redirect
+from config import UPLOAD_HISTORY_URL
 
 menu_with_redirect()
-HISTORY_URL = "http://localhost:8081/api/file/gethistory"
 
 st.header("Upload History")
 
 try:
     headers = {
         "Authorization": f"Bearer {st.session_state['access_token']}"}
-    response = requests.get(HISTORY_URL, headers=headers)
+    response = requests.get(UPLOAD_HISTORY_URL, headers=headers)
     if response.status_code == 200:
         response_data = response.json()
         df = pd.DataFrame(response_data["data"])

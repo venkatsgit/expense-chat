@@ -1,10 +1,9 @@
 import streamlit as st
 import requests
-
 from menu import menu_with_redirect
+from config import UPLOAD_URL
 
 menu_with_redirect()
-UPLOAD_URL = "http://localhost:8081/api/file/upload"
 
 st.header("Upload")
 uploaded_file = st.file_uploader("Choose a file", type=["csv"])
