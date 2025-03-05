@@ -108,11 +108,14 @@ llm_runnable = RunnableLambda(query_huggingface)
 
 # Answer rephrasing prompt
 answer_prompt = PromptTemplate.from_template(
-    """Given the following user question, corresponding SQL query, and SQL result, answer the user question.
+     """You are a helpful assistant. Given the following user question, SQL query, and SQL result, provide only the final answer with explanations.
+
     Question: {question}
     SQL Query: {query}
     SQL Result: {result}
-    Answer: """
+    
+    Answer:
+    """
 )
 
 
@@ -124,10 +127,6 @@ def process_question(question, userID):
         result = execute_sql_query(query)
 
         if result:
-            # if str(result) == "[(None,)]" :
-            #     result = "[(Decimal('0'),)]"
-            # print(result)
-            # Rephrase the answer
             rephrase_answer = answer_prompt | llm_runnable | StrOutputParser()
             answer = rephrase_answer.invoke({"question": question, "query": query, "result": result})
             return answer
@@ -140,8 +139,9 @@ def process_question(question, userID):
 @app.post("/chatbot")
 def chatbot_endpoint(request: QuestionRequest):
     answer = process_question(request.question, request.userID)
+    print({"userID": request.userID, "question": request.question, "answer": answer})
     return {"userID": request.userID, "question": request.question, "answer": answer}
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8083)

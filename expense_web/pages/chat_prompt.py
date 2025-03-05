@@ -1,10 +1,9 @@
 import streamlit as st
 import requests
-
 from menu import menu_with_redirect
+from config import CHAT_URL
 
 menu_with_redirect()
-CHAT_URL = "http://127.0.0.1:8082/api/chat"
 
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
@@ -20,12 +19,12 @@ if prompt := st.chat_input("Say something"):
     messages.chat_message("user").write(prompt)
 
     headers = {"Authorization": f"Bearer {st.session_state['access_token']}"}
-    data = {"query": prompt}
+    data = {"question": prompt , "userID": "1"}
     response = requests.post(CHAT_URL, json=data, headers=headers)
 
     if response.status_code == 200:
         response_data = response.json()
-        ai_reply = response_data['reply']
+        ai_reply = response_data['answer']
         st.session_state["chat_history"].append(
             {"role": "assistant", "content": ai_reply})
         messages.chat_message("assistant").write(ai_reply)
