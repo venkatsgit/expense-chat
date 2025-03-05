@@ -16,9 +16,6 @@ import config
 
 app = FastAPI()
 
-# Set Hugging Face API token securely
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = config.HUGGINGFACEHUB_API_TOKEN
-
 # Database connection details
 db_password = urllib.parse.quote(config.db_password)
 
@@ -38,7 +35,8 @@ except SQLAlchemyError as e:
     exit()
 
 # Initialize Hugging Face Inference Client
-client = InferenceClient("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3")
+client = InferenceClient("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+                         token=config.HUGGINGFACEHUB_API_TOKEN)
 
 
 # Function to generate a valid SQL query
