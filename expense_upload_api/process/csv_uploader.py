@@ -12,7 +12,7 @@ class FileUploader:
         self.file_name = file_name
         self.file_meta_data = file_meta_data
         self.user_id = user_id
-        self.upload_history_id = -1
+        self.file_id = -1
 
     def validate_and_insert(self):
 
@@ -75,8 +75,8 @@ class FileUploader:
                 "PROCESSING", "upload in progress")
             if upload_history_response.json['status'] == "error":
                 return jsonify({'status': 'error', 'message': 'Upload error'}), 500
-            upload_history_id = upload_history_response.json['history_id']
-            data_frame['upload_history_id'] = self.upload_history_id
+            file_id = upload_history_response.json['history_id']
+            data_frame['file_id'] = self.file_id
             insert_query = f"""
                 INSERT IGNORE INTO {sql_schema_name}.{sql_table_name} ({', '.join(sql_column_names)}) 
                 VALUES ({', '.join(['%s'] * len(sql_column_names))})
@@ -113,10 +113,10 @@ class FileUploader:
                                           message, datetime.datetime.now().replace(microsecond=0)))
             cursor.execute("SELECT LAST_INSERT_ID();")
 
-            history_id = cursor.fetchone()[0]
-            self.upload_history_id = history_id
+            file_id = cursor.fetchone()[0]
+            self.file_id = file_id
             db.commit()
-            return jsonify({'status': 'success', 'history_id': history_id})
+            return jsonify({'status': 'success', 'history_id': file_id})
 
         except Exception as e:
             print(e)
@@ -132,7 +132,7 @@ class FileUploader:
                 WHERE id = %s;
             """
             cursor.execute(
-                update_query, (status, message, self.upload_history_id))
+                update_query, (status, message, self.file_id))
             db.commit()
         except Exception as e:
             print(e)
@@ -146,7 +146,7 @@ class FileUploader:
                 'user_id': self.user_id,
                 'table_name': file_meta_data['sql_table_name'],
                 'schema_name': file_meta_data['sql_schema_name'],
-                'upload_history_id': self.upload_history_id
+                'file_id': self.file_id
             }
             headers = {
                 "auth": ""
