@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import requests
 from db import init_db, close_db
 from api import api_bp
