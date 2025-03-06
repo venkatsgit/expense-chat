@@ -1,4 +1,5 @@
-from flask import Flask
+from flask import Flask, request
+import requests
 from db import init_db, close_db
 from api import api_bp
 import os
@@ -21,6 +22,30 @@ def home():
     return "Hello, Flask!"
 
 # app.teardown_appcontext(close_db)
+
+
+@app.before_request
+def check_token():
+    if request.endpoint != "health":
+        try:
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return jsonify({"error": "Missing or invalid Authorization header"}), 401
+            token = auth_header.split(" ")[1]
+            headers = {
+                "Authorization": f"Bearer {token}"
+            }
+            response = requests.get(
+                "https://www.googleapis.com/oauth2/v1/userinfo", headers=headers)
+            if response.status_code == 200:
+                response_json = response.json()
+                #  temp user_id from google need to handle this
+                request.user_id = response_json['id']
+            else:
+                return jsonify({"error": "Missing or invalid Authorization header"}), 401
+
+        except Exception as e:
+            return jsonify({"error": "Invalid or missing token"}), 401
 
 
 if __name__ == '__main__':

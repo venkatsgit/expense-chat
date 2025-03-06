@@ -7,7 +7,10 @@ from process.upload_history import get_upload_history
 
 @api_bp.route('/file/upload', methods=['POST'])
 def upload_csv():
-    user_id = "1"
+
+    if not hasattr(request, "user_id"):
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    user_id = request.user_id
 
     if 'file' not in request.files or 'file_name' not in request.form:
         return jsonify({'status': 'error', 'message': 'bad request'}), 400
@@ -27,5 +30,7 @@ def upload_csv():
 
 @api_bp.route('/file/gethistory', methods=['GET'])
 def get_upload_history_api():
-    user_id = "1"
+    if not hasattr(request, "user_id"):
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    user_id = request.user_id
     return get_upload_history(user_id)

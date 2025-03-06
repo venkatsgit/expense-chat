@@ -28,7 +28,9 @@ def get_user_info(token):
 
 if 'token' in st.query_params:
     token_json = st.query_params['token']
-    st.session_state.token = json.loads(token_json)
+    token_json = json.loads(token_json)
+    st.session_state.token = token_json
+    st.session_state.access_token = token_json['access_token']
 
 if 'token' not in st.session_state:
     result = oauth2.authorize_button(
@@ -40,16 +42,18 @@ if 'token' not in st.session_state:
 
     if result and 'token' in result:
         st.session_state.token = result['token']
+        st.session_state.access_token =  result['token']['access_token']
         st.query_params['token'] = json.dumps(result['token'])
         st.rerun()
 else:
     token = st.session_state.token
     user_info = get_user_info(token)
 
-    # if user_info:
-        # st.switch_page("pages/chat_prompt.py")
+    if user_info:
+        st.switch_page("pages/chat_prompt.py")
 
     if st.button("Logout"):
         del st.session_state.token
+        del st.session_state.access_token
         del st.query_params['token']
         st.rerun()

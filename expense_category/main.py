@@ -2,10 +2,13 @@ from flask import Flask, jsonify, request
 from db import init_db, close_db
 import os
 import threading
+from transformers import pipeline
 from process.classifier_model_expenses import ExpenseClassifier
 
 
 app = Flask(__name__)
+classifier = pipeline("zero-shot-classification",
+                      model="facebook/bart-large-mnli")
 
 app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "34.93.134.131")
 app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", 3306))
@@ -37,7 +40,7 @@ def process_classification(user_id, file_id):
     with app.app_context():
         try:
             expense_classifier = ExpenseClassifier(
-                user_id, file_id)
+                user_id, file_id, classifier)
             expense_classifier.process_table_data()
             print(
                 f"Classification completed for user {user_id}, upload {file_id}")

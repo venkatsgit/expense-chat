@@ -4,7 +4,7 @@ from config import HUGGINGFACEHUB_API_TOKEN, FACEBOOK_BART_LARGE_MNLI_CLASSIFIER
 
 
 class ExpenseClassifier:
-    def __init__(self, user_id, file_id):
+    def __init__(self, user_id, file_id,classifier):
         self.user_id = user_id
         self.file_id = file_id
         self.processed_description = {}
@@ -14,6 +14,7 @@ class ExpenseClassifier:
             "food", "transportation", "shopping", "health", "entertainment",
             "rent",  "investment"
         ]
+        self.classifier = classifier
 
     def process_table_data(self):
 
@@ -49,7 +50,18 @@ class ExpenseClassifier:
             print(f"Error fetching descriptions: {e}")
             return []
 
-    def classify_and_store(self, batch):
+
+    def classify_and_store(self,batch):
+        try:
+            results = self.classifier(batch, self.labels)
+            for desc, result in zip(batch, results):
+                predicted_label = result['labels'][0]
+                self.processed_description[desc] = predicted_label
+                print(f"Processed: {desc} -> {predicted_label}")
+
+        except Exception as e:
+            print(f"Error during classification: {e}")
+    def classify_and_store_api(self, batch):
         try:
             payload = {
                 'inputs': batch,
