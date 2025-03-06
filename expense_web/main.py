@@ -1,45 +1,55 @@
 import streamlit as st
+from streamlit_oauth import OAuth2Component
 import requests
+import json
 
-# Keycloak Configuration
-KEYCLOAK_SERVER = "http://localhost:8080"
-REALM_NAME = "myrealm"
-CLIENT_ID = "myclient"
+CLIENT_ID = "1095140358158-ct17rj6hkj4i45kvvspt2l7hknim2ecd.apps.googleusercontent.com"
+CLIENT_SECRET = "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"
+AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/auth"
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+REVOKE_URL = "https://oauth2.googleapis.com/revoke"
+REDIRECT_URI = "http://localhost:8501"
+SCOPE = "openid email profile"
 
-TOKEN_URL = f"{KEYCLOAK_SERVER}/realms/{REALM_NAME}/protocol/openid-connect/token"
-USERINFO_URL = f"{KEYCLOAK_SERVER}/realms/{REALM_NAME}/protocol/openid-connect/userinfo"
-UPLOAD_URL = "http://127.0.0.1:5000/api/csv/expenses"
-CHAT_URL = "http://127.0.0.1:5000/api/chat"
+oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, AUTHORIZE_URL, TOKEN_URL, REVOKE_URL)
 
-st.title("Expense Insight")
 
-if "access_token" not in st.session_state:
+def get_user_info(token):
+    headers = {
+        "Authorization": f"Bearer {token['access_token']}"
+    }
+    response = requests.get("https://www.googleapis.com/oauth2/v1/userinfo", headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to fetch user information.")
+        return None
 
-    username = st.text_input("Username", placeholder="Enter your username")
-    password = st.text_input("Password", type="password", placeholder="Enter your password",
-                             help="Your credentials will be securely sent to Keycloak.")
-  
-    if st.button("Login"):
-        data = {
-            "client_id": CLIENT_ID,
-            "grant_type": "password",
-            "username": username,
-            "password": password,
-        }
 
-        st.session_state["access_token"] = "test_token"
-        st.success("Login successful!")
+if 'token' in st.query_params:
+    token_json = st.query_params['token']
+    st.session_state.token = json.loads(token_json)
+
+if 'token' not in st.session_state:
+    result = oauth2.authorize_button(
+        name="Login with Google",
+        redirect_uri=REDIRECT_URI,
+        scope=SCOPE,
+        key="google_login"
+    )
+
+    if result and 'token' in result:
+        st.session_state.token = result['token']
+        st.query_params['token'] = json.dumps(result['token'])
         st.rerun()
-        # response = requests.post(TOKEN_URL, data=data)
-
-        # if response.status_code == 200:
-        #     token_data = response.json()
-        #     access_token = token_data.get("access_token")
-        #     st.session_state["access_token"] = "access_token"
-        #     st.success("Login successful!")
-        #     st.rerun()
-        # else:
-        #     st.error("Login failed! Please check your username and password.")
 else:
-    st.switch_page("pages/chat_prompt.py")
-    
+    token = st.session_state.token
+    user_info = get_user_info(token)
+
+    # if user_info:
+        # st.switch_page("pages/chat_prompt.py")
+
+    if st.button("Logout"):
+        del st.session_state.token
+        del st.query_params['token']
+        st.rerun()
