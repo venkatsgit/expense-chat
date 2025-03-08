@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from menu import menu_with_redirect
 from config import UPLOAD_URL
+import traceback
 
 menu_with_redirect()
 
@@ -19,6 +20,9 @@ if uploaded_file is not None:
         if response.status_code == 200:
             st.success("File uploaded successfully!")
         else:
-            st.error("File upload failed!")
+            st.error(f"An error occurred: {str(response.status_code)}")
+            st.error(" File upload failed! invalid response code")
     except Exception as e:
         st.error("File upload failed!")
+        st.error(f"An error occurred: {str(e)}")
+        st.text(traceback.format_exc())  # Display the full traceback

@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql-container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: expense_insights
+      MYSQL_USER: remote_user
+      MYSQL_PASSWORD: Str0ng@Pass123
+    ports:
+      - "3306:3306"
+    volumes:
+      - /Users/venkateshsubramanian/exp_db:/var/lib/mysql  # Persistent database storage
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # create the table if does not exist
+    networks:
+      - localhost_network
+
+  expense_upload_api:
+    build:
+      context: ./expense_upload_api
+    container_name: expense-upload
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_USER: remote_user
+      DB_PASSWORD: Str0ng@Pass123
+      DB_NAME: expense_insights
+    ports:
+      - "8081:8081"
+    networks:
+      - localhost_network
+
+  expense_chat_api:
+    build:
+      context: ./expense_chat_api
+    container_name: expense-chat
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_USER: remote_user
+      DB_PASSWORD: Str0ng@Pass123
+      DB_NAME: expense_insights
+    ports:
+      - "8083:8083"
+    networks:
+      - localhost_network
+
+  expense_category:
+    build:
+      context: ./expense_category
+    container_name: expense-category
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_USER: remote_user
+      DB_PASSWORD: Str0ng@Pass123
+      DB_NAME: expense_insights
+    ports:
+      - "8082:8082"
+    networks:
+      - localhost_network
+
+  expense_web:
+    build:
+      context: ./expense_web
+    container_name: expense-web
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_USER: remote_user
+      DB_PASSWORD: Str0ng@Pass123
+      DB_NAME: expense_insights
+    ports:
+      - "8501:8501"
+    networks:
+      - localhost_network
+
+networks:
+  localhost_network:
+    driver: bridge

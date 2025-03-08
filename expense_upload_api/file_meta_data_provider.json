@@ -27,7 +27,7 @@
         ],
         "model_processing": [
             {
-               "url" : "http://34.93.134.131:8082/classify",
+               "url" : "http://expense-category:8082/classify",
                "model":"classifier"
             }
         ]
