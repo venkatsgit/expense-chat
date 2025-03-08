@@ -160,4 +160,4 @@ def google_ai(text):
 app.teardown_appcontext(close_db)
 
 if __name__ == '__main__':
-    app.run(debug=False, port=8083)
+    app.run(host="0.0.0.0", port=8083, debug=False)
