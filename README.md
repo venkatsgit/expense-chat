@@ -27,3 +27,12 @@ For businesses, this can also help with budget planning:
 "What was our travel budget last quarter?"
 "Are we overspending on utilities?"
 "Which category should we reduce spending on?"
+
+### How to run locally
+
+cd expense-insights
+
+docker-compose up --build (the build is for the first time and when you change the code or config)
+docker-compose down
+
+docker-compose up --build -d (this will bring up the containers run it in background)

@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 
 DB_CONFIG = {
-    "host" : os.getenv("MYSQL_HOST", "34.93.134.131"),
+    "host" : os.getenv("MYSQL_HOST", "mysql"),
     "user" : os.getenv("MYSQL_USER", "remote_user"),
     "password" : os.getenv("MYSQL_PASSWORD", "Str0ng@Pass123"),
     "database" :  os.getenv("MYSQL_DB", "expense_insights")
