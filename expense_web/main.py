@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit_oauth import OAuth2Component
 import requests
 import json
+from db_util import update_user_db
 
 CLIENT_ID = "1095140358158-ct17rj6hkj4i45kvvspt2l7hknim2ecd.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
@@ -12,7 +13,6 @@ REDIRECT_URI = "http://localhost:8501"
 SCOPE = "openid email profile"
 
 oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, AUTHORIZE_URL, TOKEN_URL, REVOKE_URL)
-
 
 def get_user_info(token):
     headers = {
@@ -25,7 +25,6 @@ def get_user_info(token):
         st.error("Failed to fetch user information.")
         return None
 
-
 if 'token' in st.query_params:
     token_json = st.query_params['token']
     token_json = json.loads(token_json)
@@ -33,6 +32,7 @@ if 'token' in st.query_params:
     st.session_state.access_token = token_json['access_token']
 
 if 'token' not in st.session_state:
+    st.markdown("<h1>Welcome to <b style='color: #ff4b4b;'>Expense insight</b></h1>", unsafe_allow_html=True)
     result = oauth2.authorize_button(
         name="Login with Google",
         redirect_uri=REDIRECT_URI,
@@ -50,6 +50,7 @@ else:
     user_info = get_user_info(token)
 
     if user_info:
+        update_user_db(user_info)
         st.switch_page("pages/chat_prompt.py")
 
     if st.button("Logout"):
