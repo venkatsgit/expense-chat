@@ -9,11 +9,11 @@ import config
 
 app = Flask(__name__)
 
-app.config["MYSQL_HOST"] = config.db_host
-app.config["MYSQL_PORT"] = int(3036)
-app.config["MYSQL_USER"] = config.db_user
-app.config["MYSQL_PASSWORD"] = config.db_password
-app.config["MYSQL_DB"] = config.db_name
+app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "34.93.134.131")
+app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", 3306))
+app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "remote_user")
+app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "Str0ng@Pass123")
+app.config["MYSQL_DB"] = os.getenv("MYSQL_DB", "expense_insights")
 
 init_db(app)
 
