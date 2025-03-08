@@ -6,4 +6,4 @@ db_name = "expense_insights"
 
 select_table = ["expenses"]
 
-HUGGINGFACEHUB_API_TOKEN = "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"
+HUGGINGFACEHUB_API_TOKEN = "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"

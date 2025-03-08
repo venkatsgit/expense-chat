@@ -1,145 +1,162 @@
+from flask import Flask, request, jsonify,g
+from db import init_db, close_db
+from db import get_db
 import os
-from fastapi import FastAPI, HTTPException
-import urllib.parse
-from pydantic import BaseModel
-import re
-import uvicorn
-from huggingface_hub import InferenceClient
-from langchain_community.utilities.sql_database import SQLDatabase
-from langchain_community.tools import QuerySQLDatabaseTool
-from sqlalchemy.exc import SQLAlchemyError
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+import jwt
+import requests
+import json
 
-import config
+app = Flask(__name__)
 
-app = FastAPI()
+app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "34.93.134.131")
+app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", 3306))
+app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "remote_user")
+app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "Str0ng@Pass123")
+app.config["MYSQL_DB"] = os.getenv("MYSQL_DB", "expense_insights")
 
-# Database connection details
-db_password = urllib.parse.quote(config.db_password)
+init_db(app)
 
 
-class QuestionRequest(BaseModel):
-    question: str
-    userID: str
+@app.route('/health')
+def home():
+    return "Hello, Flask!"
 
 
-# Initialize SQL Database
-try:
-    db = SQLDatabase.from_uri(f"mysql+pymysql://{config.db_user}:{db_password}@{config.db_host}/{config.db_name}",
-                              include_tables=config.select_table)
-    print("Database connected successfully.")
-except SQLAlchemyError as e:
-    print(f" Database connection error: {e}")
-    exit()
+@app.before_request
+def check_token():
+    if request.endpoint != "health":
+        try:
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return jsonify({"error": "Missing or invalid Authorization header"}), 401
+            token = auth_header.split(" ")[1]
+            headers = {
+                "Authorization": f"Bearer {token}"
+            }
+            response = requests.get(
+                "https://www.googleapis.com/oauth2/v1/userinfo", headers=headers)
+            if response.status_code == 200:
+                response_json = response.json()
+                g.user_id = response_json['id']
+            else:
+                return jsonify({"error": "Missing or invalid Authorization header"}), 401
 
-# Initialize Hugging Face Inference Client
-client = InferenceClient("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
-                         token=config.HUGGINGFACEHUB_API_TOKEN)
-
-
-# Function to generate a valid SQL query
-def generate_sql_query(question, userID):
-    try:
-        schema_info = """
-           The database has a table named 'expenses' with the following columns:
-           - id (integer, primary key)
-           - category (varchar)
-           - expense (decimal)
-           - date (date)
-
-           Ensure the generated SQL query replaces NULL values with 0 using COALESCE.
-           Generate ONLY the SQL query based on this table.
-           """
-
-        # prompt = f"Generate a MySQL query based on the following question:\n\nQuestion: {question}\n\nSQL Query:"
-
-        prompt = f"{schema_info}\n\n{question}"
-        response = client.text_generation(prompt)
-        response = response.strip()
-
-        # Extract only the SQL query using regex
-        sql_match = re.search(r"```sql\s+(.*?)\s+```", response, re.DOTALL)
-        if sql_match:
-            sql_query = sql_match.group(1).strip()
-        else:
-            sql_query = response
-
-        # Basic validation
-        if not sql_query.lower().startswith("select"):
-            raise ValueError("Generated response is not a valid SQL query.")
-
-        user_condition = f"user_id = '{userID}'"
-
-        if "where" in sql_query.lower():
-            sql_query = re.sub(r"(where\s+)", r"\1" + user_condition + " AND ", sql_query, flags=re.IGNORECASE)
-        else:
-            sql_query = sql_query.rstrip(";") + f" WHERE {user_condition};"
-        print(sql_query)
-        return sql_query
-    except Exception as e:
-        print(f"Error generating SQL query: {e}")
-        return None
+        except Exception as e:
+            return jsonify({"error": "Invalid or missing token"}), 401
 
 
-# Function to execute SQL query
-def execute_sql_query(query):
-    execute_query = QuerySQLDatabaseTool(db=db)
-    try:
-        result = execute_query.invoke(query)
-        return result
-    except SQLAlchemyError as e:
-        print(f"Error executing SQL query: {e}")
-        return None
+@app.route('/chatbot', methods=['POST'])
+def chat():
+    if request.json and request.json['question'] and g.get('user_id')  :
 
+        user_id = g.get('user_id')
+        user_query = request.json['question']
+        question = f"""  
+            You are an AI assistant. Convert DB responses into human-like summaries.  
 
-# Wrap Hugging Face client in a LangChain Runnable
-def query_huggingface(input_text):
-    """Ensure the input is a plain string before sending it to Hugging Face."""
-    if not isinstance(input_text, str):
-        input_text = str(input_text)
-    return client.text_generation(input_text)
+            **TABLE:** `expense_insights.expenses`  
+            - Tracks `expense`, `currency_code`, `description`, `category`, and `date`.  
 
+            **Question:** "{user_query}, for user_id={user_id}?"  
 
-llm_runnable = RunnableLambda(query_huggingface)
+            **Rules (STRICTLY FOLLOW):**  
+            - **Return only executable SQL queries, no full data dumps.**  
+            - **NO UPDATE/DELETE queries.**  
+            - **Apply `currency_code` as a dimension, not as a filter in WHERE.**  
+            - **Apply `date` filter ONLY IF the user explicitly mentions a date range or specific date.**  
+            - **Restrict strictly to `user_id={user_id}`.**  
+            - **Use `category` when relevant.**  
+            - **Convert timestamps to GMT for date queries.**  
+            - **Use regex for `description` if needed.**  
+            - **NEVER query without a limit.**  
+            - **STRICTLY follow response format.**  
 
-# Answer rephrasing prompt
-answer_prompt = PromptTemplate.from_template(
-     """You are a helpful assistant. Given the following user question, SQL query, and SQL result, provide only the final answer with explanations.
+            **Response Format:**  
+            - **Valid query → \"{{\\\"query\\\":\\\"SQL_QUERY\\\"}}\"**  
+            - **Invalid question → \"{{\\\"error_message\\\":\\\"Error message\\\"}}\"**  
 
-    Question: {question}
-    SQL Query: {query}
-    SQL Result: {result}
-    
-    Answer:
-    """
-)
+            Now, generate the response:
+        """
 
+    response = google_ai(question)
+    data = json.loads(response.text)
+    data = data["candidates"][0]["content"]
+    query_text = data["parts"][0]["text"]
 
-# LangChain pipeline for query execution and rephrasing
-def process_question(question, userID):
-    query = generate_sql_query(question, userID)
-    if query:
-        print(f"Generated SQL Query:\n{query}")
-        result = execute_sql_query(query)
-
-        if result:
-            rephrase_answer = answer_prompt | llm_runnable | StrOutputParser()
-            answer = rephrase_answer.invoke({"question": question, "query": query, "result": result})
-            return answer
-        else:
-            return "SQL execution failed."
+    query_text = query_text.replace("```sql", "").replace("```", "").strip()
+    query_text = query_text.replace("```json", "").replace("```", "").strip()
+    query_text = query_text.replace("json", "").replace("```", "").strip()
+    query_json = json.loads(query_text)
+    if 'query' in query_json:
+        query_text = query_json['query']
+    elif 'error_message' in query_json:
+        return jsonify({'status': 'success', 'answer': query_json['error_message']}), 200
     else:
-        return "Failed to generate a valid SQL query."
+        return jsonify({'status': 'success', 'answer': 'Error occured'}), 200
+    db, cursor = get_db()
+    query_response = cursor.execute(query_text)
+    query_response = cursor.fetchall()
+    cursor.close()
+
+    formatted_response = f"""
+    You are an AI assistant. Convert the database response into a natural, human-readable summary.
+
+    ### Database Table: `expenses`
+    The database stores user expenses with details like amount, currency, description, category, and date.
+
+    ### Instructions:
+    - **Do NOT return the SQL query.**
+    - **Do NOT disclose SQL column names or database structure.**
+    - **Do NOT include `user_id` in the response.**
+    - Keep the response conversational, concise, and user-friendly.
+    - **Strictly restrict `UPDATE` and `DELETE` queries**—if detected, respond negatively.
+    - If the query is unrelated to the question, do not return the database response.
+    - Convert Unix timestamps into readable date formats.
+    - The "description" field represents where the user spent money.
+    - **Avoid making conclusions due to limited data.**
+    - **Do NOT start responses with 'Okay'.**
+
+    ### Example Behavior:
+    - If expenses exist:  
+      - **"You've spent $500 USD on food and rent."**
+      - **"You've spent $500 USD and €300 EUR on food and rent."** (if multiple currencies)
+    - If no expenses exist:  
+      - **"Looks like you haven't recorded any expenses for food or rent yet."**
+
+    ### Input:
+    - **User Question:** {question}
+    - **Database Response:** {query_response}
+
+    Now, generate the response:
+    """
+
+    response = google_ai(formatted_response)
+    data = json.loads(response.text)
+    # print(data)
+    data = data["candidates"][0]["content"]
+    query_text = data["parts"][0]["text"]
+
+    return jsonify({'status': 'success', 'answer': query_text}), 200
 
 
-@app.post("/chatbot")
-def chatbot_endpoint(request: QuestionRequest):
-    answer = process_question(request.question, request.userID)
-    print({"userID": request.userID, "question": request.question, "answer": answer})
-    return {"userID": request.userID, "question": request.question, "answer": answer}
+def google_ai(text):
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAetG3Sl0UVG3InmMLz0DWAPFJrG41sBJg"
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": text
+                    }
+                ]
+            }
+        ]
+    }
+    return requests.post(url, json=payload)
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8083)
+app.teardown_appcontext(close_db)
+
+if __name__ == '__main__':
+    app.run(debug=True, port=8083)
