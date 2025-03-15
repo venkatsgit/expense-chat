@@ -6,10 +6,11 @@ import jwt
 import requests
 import json
 import config
+from sqlchain import get_few_shot_db_chain
 
 app = Flask(__name__)
 
-app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "34.93.134.131")
+app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "mysql")
 app.config["MYSQL_PORT"] = int(os.getenv("MYSQL_PORT", 3306))
 app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "remote_user")
 app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "Str0ng@Pass123")
@@ -23,7 +24,7 @@ def home():
     return "Hello, Flask!"
 
 
-@app.before_request
+#@app.before_request
 def check_token():
     if request.endpoint != "health":
         try:
@@ -48,7 +49,8 @@ def check_token():
 
 @app.route('/chatbot', methods=['POST'])
 def chat():
-    if request.json and request.json['question'] and g.get('user_id')  :
+    print ("chatbot api endpoint invoked")
+    if request.json and request.json['question']: # and g.get('user_id'):
 
         user_id = g.get('user_id')
         user_query = request.json['question']
@@ -80,6 +82,7 @@ def chat():
         """
 
     response = google_ai(question)
+    initial_resp_text = response.text
     data = json.loads(response.text)
     data = data["candidates"][0]["content"]
     query_text = data["parts"][0]["text"]
@@ -155,6 +158,12 @@ def google_ai(text):
         ]
     }
     return requests.post(url, json=payload)
+
+@app.route('/chatbot_v1', methods=['POST'])
+def chat_v1():
+    user_query = request.json['question']
+    chain = get_few_shot_db_chain()
+    response = chain.run("{user_query}, for user_id=106659949639075966002?")
 
 
 app.teardown_appcontext(close_db)
