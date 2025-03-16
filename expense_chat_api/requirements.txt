@@ -2,3 +2,24 @@ Flask==3.1.0
 requests==2.28.0
 Flask-MySQLdb==2.0.0
 PyJWT==2.8.0
+
+# Core dependencies
+torch>=2.0.0
+transformers>=4.30.0
+sqlalchemy>=2.0.0
+pandas>=2.0.0
+
+# Database drivers
+pymysql>=1.0.0
+pyodbc>=4.0.0
+
+# Vector storage and embeddings
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+
+# LangChain integration
+langchain>=0.0.267
+langchain-community>=0.0.10
+
+# Command-line interface
+argparse>=1.4.0

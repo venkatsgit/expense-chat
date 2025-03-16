@@ -1,7 +1,5 @@
 import json
 from typing import List, Dict, Any
-import chromadb
-from chromadb.config import Settings
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
