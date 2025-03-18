@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify,g
 from db import init_db, close_db
 from db import get_db
+from difflib import get_close_matches
 import os
 import jwt
 import requests
 import json
-import config
 from sqlchain import get_few_shot_db_chain
 
 app = Flask(__name__)
@@ -54,6 +54,16 @@ def chat():
 
         user_id = g.get('user_id')
         user_query = request.json['question']
+
+        similar_example = get_similar_example(user_query)
+
+        print("Similar example: {}".format(similar_example))
+
+        # Format similar examples for Google API
+        example_text = "\n\n".join(
+            [f"Example:\nUser Query: {ex['prompt']}\nSQL: {ex['sql']}" for ex in similar_example]
+        ) if similar_example else "No similar examples found."
+
         question = f"""  
             You are an AI assistant. Convert DB responses into human-like summaries.  
 
@@ -61,6 +71,8 @@ def chat():
             - Tracks `expense`, `currency_code`, `description`, `category`, and `date`.  
 
             **Question:** "{user_query}, for user_id={user_id}?"  
+
+            **Similar Examples: ** {example_text}
 
             **Rules (STRICTLY FOLLOW):**  
             - **Return only executable SQL queries, no full data dumps.**  
@@ -97,6 +109,9 @@ def chat():
         return jsonify({'status': 'success', 'answer': query_json['error_message']}), 200
     else:
         return jsonify({'status': 'success', 'answer': 'Error occured'}), 200
+
+    print("query: {}".format(query_text))
+
     db, cursor = get_db()
     query_response = cursor.execute(query_text)
     query_response = cursor.fetchall()
@@ -159,6 +174,24 @@ def google_ai(text):
     }
     return requests.post(url, json=payload)
 
+def get_similar_example(question):
+    prompt_example = load_examples_from_config()
+
+    # Extract only the prompt strings
+    prompt_texts = [ex["prompt"] for ex in prompt_example]
+
+    # Find similar prompts
+    similar_questions = get_close_matches(question, prompt_texts, n=3, cutoff=0.5)
+
+    # Filter and return matching examples
+    return [ex for ex in prompt_example if ex["prompt"] in similar_questions]
+
+def load_examples_from_config():
+    with open("config.json", 'r') as f:
+        config = json.load(f)
+
+    return config.get("examples", {}).get("mysql",[])
+
 @app.route('/chatbot_v1', methods=['POST'])
 def chat_v1():
     user_query = request.json['question']
@@ -167,6 +200,7 @@ def chat_v1():
 
 
 app.teardown_appcontext(close_db)
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8083, debug=False)
