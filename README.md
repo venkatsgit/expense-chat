@@ -36,3 +36,7 @@ docker-compose up --build (the build is for the first time and when you change t
 docker-compose down
 
 docker-compose up --build -d (this will bring up the containers run it in background)
+
+### How to connect to SQL Server 
+
+ssh -L 1433:wksp-int-syna-sea-02.sql.azuresynapse.net:1433 -N -f -i /Users/venkateshsubramanian/.ssh/id_ed25519 venkatsemail1@34.93.134.131
